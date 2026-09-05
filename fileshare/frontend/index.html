@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>FileShare</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #666;
+        }
+
+        input[type="file"] {
+            margin: 25px 0;
+            width: 100%;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #status {
+    margin-top: 20px;
+    font-weight: bold;
+}
+
+#downloadProgress {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #2563eb;
+}
+
+.progress-container {
+    width: 100%;
+    height: 12px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 100%;
+    background: #2563eb;
+    border-radius: 10px;
+    transition: width 0.2s ease;
+}
+          
+
+        #shareLink {
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 5px;
+        }
+
+        #downloadLink {
+            display: inline-block;
+            margin-top: 15px;
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        #downloadLink:hover {
+            text-decoration: underline;
+        }
+        #infoButton {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    padding: 10px 15px;
+    background: white;
+    color: #2563eb;
+    border-radius: 8px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 1000;
+}
+    </style>
+</head>
+
+<body>
+<div id="infoButton" onclick="openInfo()">ℹ️ Info</div>
+    <div class="container">
+
+        <h1>FileShare</h1>
+<button onclick="openSettings()">⚙️ Settings</button>
+        <p>Share your files easily</p>
+
+        <input type="file" id="fileInput">
+
+        <br>
+
+        <button onclick="uploadFile()">
+            Upload File
+        </button>
+
+        <p id="status"></p>
+<div id="uploadProgress"></div>
+    </div>
+
+
+    <script>
+
+        async function uploadFile() {
+
+            const fileInput = document.getElementById("fileInput");
+            const status = document.getElementById("status");
+
+            if (fileInput.files.length === 0) {
+                status.innerText = "Please select a file.";
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            status.innerText = "Uploading...";
+
+            try {
+
+                const response = await new Promise((resolve, reject) => {
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(
+        "POST",
+        (localStorage.getItem("serverUrl") || "http://localhost:5000") + "/upload"
+    );
+
+    const uploadProgress = document.getElementById("uploadProgress");
+
+    uploadProgress.innerHTML = `
+        Uploading... 0%
+        <div class="progress-container">
+            <div class="progress-bar" id="uploadProgressBar" style="width: 0%;"></div>
+        </div>
+    `;
+
+    xhr.upload.onprogress = function (event) {
+
+        if (event.lengthComputable) {
+
+            const percent = Math.round(
+                (event.loaded / event.total) * 100
+            );
+
+            uploadProgress.innerHTML = `
+                Uploading... ${percent}%
+                <div class="progress-container">
+                    <div class="progress-bar"
+                         id="uploadProgressBar"
+                         style="width: ${percent}%;">
+                    </div>
+                </div>
+            `;
+        }
+    };
+
+    xhr.onload = function () {
+
+        resolve({
+            ok: xhr.status >= 200 && xhr.status < 300,
+            json: async function () {
+                return JSON.parse(xhr.responseText);
+            }
+        });
+
+    };
+
+    xhr.onerror = function () {
+        reject(new Error("Upload failed"));
+    };
+
+    xhr.send(formData);
+});
+
+                const data = await response.json();
+
+                if (response.ok) {
+
+                    status.innerHTML =
+                        "✅ File uploaded successfully!" +
+                        "<br><br>" +
+                        "File: " + data.filename +
+                        "<br><br>" +
+
+                        '<input id="shareLink" value="' +
+                        data.download_url +
+'" readonly>' +
+"<br><br>" +
+'<button onclick="copyLink()">📋 Copy Link</button>' +
+"<br><br>" +
+'<button onclick="downloadFile(\'' +
+data.download_url +
+'\', \'' +
+data.filename +
+'\')">📥 Download File</button>' +
+"<br><br>" +
+'<div id="downloadProgress"></div>';
+} else {
+
+                    status.innerText =
+                        "❌ " + data.error;
+
+                }
+
+            } catch (error) {
+
+                status.innerText =
+                    "❌ Server se connection nahi hua.";
+
+            }
+
+        }
+
+async function downloadFile(url, fileName) {
+
+    const progress = document.getElementById("downloadProgress");
+
+    progress.innerHTML = `
+        Downloading... 0%
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar" style="width: 0%;"></div>
+        </div>
+    `;
+
+    try {
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error("Download failed");
+        }
+
+        const total = parseInt(
+            response.headers.get("Content-Length"),
+            10
+        );
+
+        const contentType =
+            response.headers.get("Content-Type") ||
+            "application/octet-stream";
+
+        const reader = response.body.getReader();
+
+        let received = 0;
+        const chunks = [];
+
+        while (true) {
+
+            const { done, value } = await reader.read();
+
+            if (done) {
+                break;
+            }
+
+            chunks.push(value);
+            received += value.length;
+
+            if (total) {
+
+                const percent = Math.round(
+                    (received / total) * 100
+                );
+
+                progress.innerHTML = `
+                    Downloading... ${percent}%
+                    <div class="progress-container">
+                        <div class="progress-bar"
+                             style="width: ${percent}%;">
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const blob = new Blob(chunks, {
+            type: contentType
+        });
+
+        const downloadUrl =
+            window.URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+
+        a.href = downloadUrl;
+        a.download = fileName;
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+        window.URL.revokeObjectURL(downloadUrl);
+
+        progress.innerText =
+            "✅ Download Complete! 100%";
+
+    } catch (error) {
+
+        progress.innerText =
+            "❌ Download failed.";
+
+        console.error(error);
+    }
+}
+function openSettings() {
+
+    const panel = document.getElementById("settingsPanel");
+
+    const savedUrl = localStorage.getItem("serverUrl");
+
+    document.getElementById("serverUrl").value =
+        savedUrl || "http://localhost:5000";
+
+    panel.style.display = "flex";
+}
+
+
+function closeSettings() {
+
+    document.getElementById("settingsPanel").style.display = "none";
+}
+
+
+function saveSettings() {
+
+    const url =
+        document.getElementById("serverUrl").value.trim();
+
+    if (url === "") {
+
+        document.getElementById("settingsStatus").innerText =
+            "❌ Server address enter karo.";
+
+        return;
+    }
+
+    localStorage.setItem("serverUrl", url);
+
+    document.getElementById("settingsStatus").innerText =
+        "✅ Server address saved!";
+}
+function openInfo() {
+    document.getElementById("infoPanel").style.display = "flex";
+}
+
+function closeInfo() {
+    document.getElementById("infoPanel").style.display = "none";
+}
+        function copyLink() {
+
+            const link =
+                document.getElementById("shareLink");
+
+            navigator.clipboard.writeText(link.value);
+
+            alert("✅ Download link copied!");
+
+        }
+
+    </script>
+<div id="settingsPanel" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.4);
+    justify-content:center;
+    align-items:center;
+    z-index:1000;
+">
+
+    <div style="
+        background:white;
+        width:85%;
+        max-width:400px;
+        padding:25px;
+        border-radius:15px;
+        text-align:center;
+    ">
+
+        <h2>⚙️ Settings</h2>
+
+        <p>Server / API Address</p>
+
+        <input
+            type="text"
+            id="serverUrl"
+            placeholder="http://localhost:5000"
+            style="
+                width:90%;
+                padding:10px;
+                border:1px solid #ddd;
+                border-radius:8px;
+            "
+        >
+
+        <br><br>
+
+        <button onclick="saveSettings()">
+            💾 Save
+        </button>
+
+        <button onclick="closeSettings()">
+            ❌ Close
+        </button>
+
+        <p id="settingsStatus"></p>
+
+    </div>
+
+</div>
+<div id="infoPanel" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.4);
+    justify-content:center;
+    align-items:center;
+    z-index:1001;
+">
+
+    <div style="
+        background:white;
+        width:85%;
+        max-width:400px;
+        padding:25px;
+        border-radius:15px;
+        text-align:center;
+    ">
+
+        <h2>ℹ️ About FileShare</h2>
+
+        <p>FileShare is a simple and fast file sharing website.</p>
+
+        <p><b>Developer:</b> Aditya Sharma</p>
+
+        <p><b>Instagram:</b> @_mr_aditya_3_0_7_</p>
+
+        <p><b>Telegram:</b> @Its_adi01</p>
+
+        <br>
+
+        <button onclick="closeInfo()">❌ Close</button>
+
+    </div>
+
+</div>
+</body>
+
+</html>
