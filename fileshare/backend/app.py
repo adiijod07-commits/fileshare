@@ -26,7 +26,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route("/")
 def home():
-    return "FileShare Backend is Running!"
+    return render_template("index.html")
 
 
 # -----------------------------
