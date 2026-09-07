@@ -350,9 +350,8 @@ function openSettings() {
 
     const savedUrl = localStorage.getItem("serverUrl");
 
-    document.getElementById("serverUrl").value =
-        savedUrl || "http://localhost:5000";
-
+document.getElementById("serverUrl").value =
+    savedUrl || "https://fileshare-backend.onrender.com";
     panel.style.display = "flex";
 }
 
