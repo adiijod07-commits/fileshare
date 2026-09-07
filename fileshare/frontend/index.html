@@ -163,9 +163,7 @@
 
     const xhr = new XMLHttpRequest();
 
-    xhr.open(
-        "POST",
-        (localStorage.getItem("serverUrl") || "http://localhost:5000") + "/upload"
+   (localStorage.getItem("serverUrl") || "https://fileshare-1-mq21.onrender.com") + "/upload"
     );
 
     const uploadProgress = document.getElementById("uploadProgress");
